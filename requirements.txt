@@ -1,0 +1,6 @@
+# Standalone simulation, tests and verification notebook.
+# Tested with Python 3.12/3.13, numpy 2.x, matplotlib 3.x.
+numpy>=1.26
+matplotlib>=3.8
+pytest>=8
+jupyter
