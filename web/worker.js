@@ -9,21 +9,24 @@ const ready = (async () => {
   py = await loadPyodide();
   await py.loadPackage('numpy');
   // Copy the simulation package (identical to the repository's microseismic/) into
-  // Pyodide's virtual file system so `import microseismic` works.
-  py.FS.mkdirTree('microseismic');
+  // Pyodide's virtual file system so `import microseismic` works. Absolute paths are
+  // required: relative paths in Pyodide's FS fail with ErrnoError 44 (no such file).
+  const home = '/home/pyodide';
+  py.FS.mkdirTree(`${home}/microseismic`);
   for (const name of PACKAGE_FILES) {
     const response = await fetch(`./microseismic/${name}.py`);
     if (!response.ok) throw new Error(`Cannot load microseismic/${name}.py (${response.status})`);
-    py.FS.writeFile(`microseismic/${name}.py`, await response.text());
+    py.FS.writeFile(`${home}/microseismic/${name}.py`, await response.text());
   }
   const bridge = await fetch('./bridge.py');
   if (!bridge.ok) throw new Error(`Cannot load bridge.py (${bridge.status})`);
-  py.FS.writeFile('bridge.py', await bridge.text());
+  py.FS.writeFile(`${home}/bridge.py`, await bridge.text());
   py.globals.set('report_progress', (percent, phase) => self.postMessage({ type: 'progress', percent, phase }));
-  await py.runPythonAsync('import sys\nif "." not in sys.path: sys.path.insert(0, ".")\nfrom bridge import run');
+  await py.runPythonAsync(`import sys\nif "${home}" not in sys.path: sys.path.insert(0, "${home}")\nfrom bridge import run`);
   self.postMessage({ type: 'ready' });
 })();
-ready.catch(error => self.postMessage({ type: 'error', message: String(error) }));
+const describe = error => error?.message || (error?.name ? `${error.name}${error.errno ? ` (errno ${error.errno})` : ''}` : String(error));
+ready.catch(error => self.postMessage({ type: 'error', message: `Python failed to start: ${describe(error)}` }));
 
 self.onmessage = async ({ data }) => {
   try {
@@ -35,6 +38,6 @@ self.onmessage = async ({ data }) => {
       self.postMessage({ type: 'result', id: data.id, result: converted });
     } finally { result.destroy(); }
   } catch (error) {
-    self.postMessage({ type: 'error', id: data.id, message: String(error).trim().split('\n').at(-1) });
+    self.postMessage({ type: 'error', id: data.id, message: describe(error).trim().split('\n').at(-1) });
   }
 };

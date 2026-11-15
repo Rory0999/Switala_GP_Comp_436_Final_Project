@@ -43,7 +43,8 @@ function startWorker() {
     else if (data.type === 'progress') { $('progress').value = data.percent; status(`${data.phase} · ${data.percent}%`); }
     else if (data.type === 'error') {
       busy = false; lock();
-      status(`Could not run: ${data.message}`);
+      if (!ready) { $('run').textContent = 'Python failed to load. Reload the page.'; status(data.message); }
+      else status(`Could not run: ${data.message}`);
     } else if (data.type === 'result') {
       if (data.result.kind === 'events') {
         if (data.id === requestId) { previewEvents = data.result.events; draw(); }
